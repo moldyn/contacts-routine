@@ -5,6 +5,8 @@ import numpy as np
 import mdtraj as md
 from tqdm import tqdm
 
+from trajectory_files import TRAJ_EXTENSIONS, get_trajectory_files
+
 
 @click.command(
     no_args_is_help='-h',
@@ -15,14 +17,25 @@ from tqdm import tqdm
     '-f',
     'trajfile',
     type=click.Path(exists=True),
-    help='Path to trajectory file (.xtc) or folder containing .xtc files',
+    help='Path to trajectory file (e.g. .xtc, .trr, .dcd, .nc)',
 )
 @click.option(
     '--trajectory-list',
     '--traj-list',
     'trajlist',
     type=click.Path(exists=True),
-    help='Path to folder containing .xtc files OR file with list of trajectory paths',
+    help=(
+        'Path to folder containing trajectory files '
+        f'({", ".join(TRAJ_EXTENSIONS)}) OR file with list of trajectory paths'
+    ),
+)
+@click.option(
+    '--traj-ext',
+    'trajext',
+    help=(
+        'Only use trajectory files with this extension when '
+        '--trajectory-list is a folder (e.g. xtc, trr, dcd).'
+    ),
 )
 @click.option(
     '--topology',
@@ -47,28 +60,9 @@ from tqdm import tqdm
     type=click.Path(),
     help='Path to output file',
 )
-def main(trajfile, trajlist, topfile, ndxfile, output):
-    import os
-    import glob
-    
+def main(trajfile, trajlist, topfile, ndxfile, output, trajext):
     # Get list of trajectory files
-    if trajlist:
-        # Check if it's a directory or a file
-        if os.path.isdir(trajlist):
-            # It's a folder - get all .xtc files
-            traj_files = sorted(glob.glob(os.path.join(trajlist, '*.xtc')))
-            if not traj_files:
-                raise click.UsageError(f"No .xtc files found in folder: {trajlist}")
-        else:
-            # It's a file with list of trajectories
-            with open(trajlist, 'r') as f:
-                traj_files = [line.strip() for line in f if line.strip()]
-    elif trajfile:
-        traj_files = [trajfile]
-    else:
-        raise click.UsageError(
-            "Either --trajectory or --trajectory-list must be provided"
-        )
+    traj_files = get_trajectory_files(trajfile, trajlist, topfile, trajext)
     
     print(f"Processing {len(traj_files)} trajectory file(s)")
     if len(traj_files) <= 10:
@@ -142,26 +136,19 @@ def main(trajfile, trajlist, topfile, ndxfile, output):
             for distances in compute_distances(
                 traj_file, topfile, atom_pairs,
             ):
-                ostream.write(
-                    ' '.join([f'{d:.5f}' for d in distances]) + '\n',
-                )
+                np.savetxt(ostream, distances, fmt='%.5f')
 
 
-def load_xtc(trajfile, topfile):
-    top = md.load_topology(topfile)
-    with md.open(trajfile) as xtc:
-        while (
-            frame := xtc.read_as_traj(top, n_frames=1)
-        ).n_frames:
-            yield frame
-
-
-def compute_distances(trajfile, topfile, atom_pairs):
-    for frame in tqdm(load_xtc(trajfile, topfile), desc=f"Processing {trajfile}"):
+def compute_distances(trajfile, topfile, atom_pairs, chunk=100):
+    # iterload reads any mdtraj-supported format chunk by chunk
+    for frames in tqdm(
+        md.iterload(trajfile, top=topfile, chunk=chunk),
+        desc=f"Processing {trajfile}",
+    ):
         yield md.compute_distances(
-            frame,
+            frames,
             atom_pairs=atom_pairs,
-        )[0].flatten()
+        )
 
 
 if __name__ == '__main__':

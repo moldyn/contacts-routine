@@ -9,6 +9,8 @@ from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='MDAnalysis')
 
+from trajectory_files import TRAJ_EXTENSIONS, get_trajectory_files
+
 CUTOFF = 4.5  # [AA]
 
 
@@ -21,14 +23,25 @@ CUTOFF = 4.5  # [AA]
     '-f',
     'trajfile',
     type=click.Path(exists=True),
-    help='Path to trajectory file (.xtc) or folder containing .xtc files',
+    help='Path to trajectory file (e.g. .xtc, .trr, .dcd, .nc)',
 )
 @click.option(
     '--trajectory-list',
     '--traj-list',
     'trajlist',
     type=click.Path(exists=True),
-    help='Path to folder containing .xtc files OR file with list of trajectory paths',
+    help=(
+        'Path to folder containing trajectory files '
+        f'({", ".join(TRAJ_EXTENSIONS)}) OR file with list of trajectory paths'
+    ),
+)
+@click.option(
+    '--traj-ext',
+    'trajext',
+    help=(
+        'Only use trajectory files with this extension when '
+        '--trajectory-list is a folder (e.g. xtc, trr, dcd).'
+    ),
 )
 @click.option(
     '--top',
@@ -74,28 +87,12 @@ CUTOFF = 4.5  # [AA]
     is_flag=True,
     help='Print detailed progress information',
 )
-def main(trajfile, trajlist, topfile, ndxfile, output, count_hydrogen, mode, verbose):
-    import os
-    import glob
-    
+def main(
+    trajfile, trajlist, trajext, topfile, ndxfile, output, count_hydrogen,
+    mode, verbose,
+):
     # Get list of trajectory files
-    if trajlist:
-        # Check if it's a directory or a file
-        if os.path.isdir(trajlist):
-            # It's a folder - get all .xtc files
-            traj_files = sorted(glob.glob(os.path.join(trajlist, '*.xtc')))
-            if not traj_files:
-                raise click.UsageError(f"No .xtc files found in folder: {trajlist}")
-        else:
-            # It's a file with list of trajectories
-            with open(trajlist, 'r') as f:
-                traj_files = [line.strip() for line in f if line.strip()]
-    elif trajfile:
-        traj_files = [trajfile]
-    else:
-        raise click.UsageError(
-            "Either --traj or --trajectory-list must be provided"
-        )
+    traj_files = get_trajectory_files(trajfile, trajlist, topfile, trajext)
     if verbose:
         print(f"Processing {len(traj_files)} trajectory file(s)")
         if len(traj_files) <= 10:
