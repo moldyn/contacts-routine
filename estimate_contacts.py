@@ -246,17 +246,18 @@ def cmap_per_traj_slice(
             select_atoms_str.format(res=res),
         )
     
-    # set frame
-    box = universe.dimensions
     cmap = np.zeros(len(contact_pairs))
     blockslice = blockslices[slice_idx]
-    for _ in tqdm(
+    for ts in tqdm(
         universe.trajectory[blockslice.start:blockslice.stop],
         position=slice_idx,
         desc=f'process {slice_idx:>2.0f}',
         leave=False,
         mininterval=1,
     ):
+        # read the box of the current frame (it changes in NPT simulations;
+        # some readers, e.g. DCD, do not update it in place)
+        box = ts.dimensions
         cmap += np.array([
             np.min(
                 distance_array(
