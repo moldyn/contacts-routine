@@ -30,7 +30,7 @@ The entry point for the full pipeline is `run_contacts_routine.sh`.
 ## Usage
 
 ```bash
-./run_contacts_routine.sh -traj <path> -pdb <file> -min <val> -max <val> -ndx <file> -sys <name> -traj_mode <mode> -mode <mode> [-ext <ext>]
+./run_contacts_routine.sh -traj <path> -pdb <file> -min <val> -max <val> -ndx <file> -sys <name> -traj_mode <mode> -mode <mode> [-ext <ext>] [-stride <n>]
 ```
 
 | Parameter | Description |
@@ -44,6 +44,7 @@ The entry point for the full pipeline is `run_contacts_routine.sh`.
 | `-traj_mode` | Trajectory mode: `single` or `multi` |
 | `-mode` | Threshold mode: `overall` or `per-trajectory` |
 | `-ext` | *(optional, `multi` only)* Only use files with this extension from the folder, e.g. `dcd` |
+| `-stride` | *(optional)* Use only every n-th frame of each trajectory, e.g. `10` (default: `1`, all frames) |
 
 ### Trajectory formats
 
@@ -51,6 +52,10 @@ Any format readable by both `MDAnalysis` and `mdtraj` is supported; the format i
 `.xtc`, `.trr`, `.dcd`, `.nc`/`.ncdf` (AMBER NetCDF), `.mdcrd`, `.xyz`, `.gro`, `.pdb`.
 
 In `multi` mode every file in the folder with one of these extensions is used (the topology file is skipped if it lies in the same folder). If the folder contains trajectories of more than one format (e.g. `traj.xtc` and `traj.trr` of the same run), the pipeline stops with an error so frames are not counted twice; choose the format with `-ext`.
+
+### Stride
+
+`-stride n` analyses only frames 0, n, 2n, … of each trajectory, which makes long trajectories much faster to process. Steps 1 and 3 use exactly the same frames, so the final `.mindist` file has one row per used frame. The stride is recorded in the header of `<s>.is_mindist`; if that file already exists but was computed with a different stride, the pipeline stops instead of reusing it.
 
 ### Threshold window
 
@@ -90,6 +95,11 @@ Contacts are selected if their formation frequency falls between `MIN_THR` and `
 **Multiple `.dcd` trajectories in a folder that also contains other formats:**
 ```bash
 ./run_contacts_routine.sh -traj /path/to/traj_folder -pdb system.pdb -min 0.1 -max 0.9 -ndx indices.ndx -sys my_system -traj_mode multi -mode overall -ext dcd
+```
+
+**Every 10th frame only:**
+```bash
+./run_contacts_routine.sh -traj traj.xtc -pdb system.pdb -min 0.1 -max 0.9 -ndx indices.ndx -sys my_system -traj_mode single -mode overall -stride 10
 ```
 
 When using `multi` mode, the folder should contain trajectory files named e.g.:

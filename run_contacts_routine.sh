@@ -3,7 +3,7 @@
 
 # Print usage instructions
 usage() {
-    echo "Usage: $0 -traj <path> -pdb <file> -min <val> -max <val> -ndx <file> -sys <name> -traj_mode <mode> -mode <mode> [-ext <ext>]"
+    echo "Usage: $0 -traj <path> -pdb <file> -min <val> -max <val> -ndx <file> -sys <name> -traj_mode <mode> -mode <mode> [-ext <ext>] [-stride <n>]"
     echo "  -traj: trajectory file OR path to folder with trajectory files (alias: -xtc)"
     echo "         supported formats: xtc, trr, dcd, nc, ncdf, mdcrd, xyz, gro, pdb"
     echo "  -pdb: pdb file"
@@ -17,6 +17,7 @@ usage() {
     echo "           per-trajectory: contacts must meet threshold in each trajectory"
     echo "  -ext: (optional, multi mode) only use files with this extension in the folder,"
     echo "        required if the folder contains trajectories of more than one format"
+    echo "  -stride: (optional) use only every n-th frame of each trajectory (default: 1 = all frames)"
     echo ""
     echo "Examples:"
     echo "  Single trajectory:"
@@ -30,6 +31,9 @@ usage() {
     echo ""
     echo "  Multiple .dcd trajectories in a folder that also contains .xtc files:"
     echo "    $0 -traj /path/to/traj_folder -pdb system.pdb -min 0.3 -max 0.9 -ndx indices.ndx -sys system_name -traj_mode multi -mode overall -ext dcd"
+    echo ""
+    echo "  Every 10th frame only (faster for long trajectories):"
+    echo "    $0 -traj traj.xtc -pdb system.pdb -min 0.3 -max 0.9 -ndx indices.ndx -sys system_name -traj_mode single -mode overall -stride 10"
     echo ""
     echo "  Folder should contain trajectory files like:"
     echo "    /path/to/traj_folder/traj1.xtc"
@@ -49,6 +53,7 @@ while [[ "$#" -gt 0 ]]; do
         -traj_mode) TRAJ_MODE="$2"; shift ;;
         -mode) MODE="$2"; shift ;;
         -ext) TRAJ_EXT="$2"; shift ;;
+        -stride) STRIDE="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; usage; exit 1 ;;
     esac
     shift
@@ -98,6 +103,13 @@ else
     echo "Trajectory file: $TRAJ"
 fi  
 
+STRIDE="${STRIDE:-1}"
+if ! [[ "$STRIDE" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Error: -stride must be a positive integer"
+    usage
+    exit 1
+fi
+
 if [ ! -f "$PDB" ] || [ ! -f "$INDEX" ]; then
     echo "Error: PDB or INDEX file does not exist"
     usage
@@ -138,8 +150,21 @@ if [[ ! -e "${IS_MINDIST}" ]]; then
         --index $INDEX \
         --output $IS_MINDIST \
         --mode $MODE \
+        --stride $STRIDE \
         --verbose
 else
+    # the stride is recorded in the header (only if > 1); never reuse a
+    # result computed with a different stride
+    if [ "$STRIDE" -gt 1 ]; then
+        grep -q "stride ${STRIDE})" "${IS_MINDIST}"; SAME_STRIDE=$?
+    else
+        ! grep -q "stride [0-9]*)" "${IS_MINDIST}"; SAME_STRIDE=$?
+    fi
+    if [ "$SAME_STRIDE" -ne 0 ]; then
+        echo "Error: ${IS_MINDIST} exists but was computed with a different stride."
+        echo "       Delete it or use another -sys name."
+        exit 1
+    fi
     echo "skipping step 1 (${IS_MINDIST} already exists)"
 fi
 
@@ -158,7 +183,8 @@ time python contacts.py \
     $TRAJ_ARG $TRAJ "${EXT_ARG[@]}" \
     -s $PDB \
     -n ${IS_MINDIST}.thr${THR_SUFFIX}.ndx \
-    -o $ATOMDIST
+    -o $ATOMDIST \
+    --stride $STRIDE
 
 # extract minimal distances between all atom pairs forming a contact more often
 # than the the given threshold

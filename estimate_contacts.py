@@ -82,6 +82,13 @@ CUTOFF = 4.5  # [AA]
     ),
 )
 @click.option(
+    '--stride',
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+    help='Use only every n-th frame of each trajectory.',
+)
+@click.option(
     '--verbose',
     '-v',
     is_flag=True,
@@ -89,7 +96,7 @@ CUTOFF = 4.5  # [AA]
 )
 def main(
     trajfile, trajlist, trajext, topfile, ndxfile, output, count_hydrogen,
-    mode, verbose,
+    mode, stride, verbose,
 ):
     # Get list of trajectory files
     traj_files = get_trajectory_files(trajfile, trajlist, topfile, trajext)
@@ -161,25 +168,19 @@ def main(
                 select_atoms_str.format(res=res),
                 )
         
-        # Define slices for parallel processing
+        # Define slices for parallel processing; frames 0, stride, 2*stride,
+        # ... are split into consecutive blocks (same frames as contacts.py)
         n_jobs = cpu_count()
-        n_frames = universe.trajectory.n_frames
+        frames = range(0, universe.trajectory.n_frames, stride)
+        n_frames = len(frames)
         n_blocks = n_jobs
         n_frames_per_slice = n_frames // n_blocks
 
         slices_values = [
-            range(
-                i * n_frames_per_slice,
-                (i + 1) * n_frames_per_slice,
-            )
+            frames[i * n_frames_per_slice:(i + 1) * n_frames_per_slice]
             for i in range(n_blocks - 1)
         ]
-        slices_values.append(
-            range(
-                (n_blocks - 1) * n_frames_per_slice,
-                n_frames,
-            )
-        )
+        slices_values.append(frames[(n_blocks - 1) * n_frames_per_slice:])
 
         # Loop through trajectory
         run_per_slice = partial(
@@ -215,6 +216,8 @@ def main(
         # Take minimum fraction across all trajectories
         cmap = np.min(cmap_per_traj, axis=0)
         mode_description = f'minimum across {len(traj_files)} trajectories (must pass threshold in each)'
+    if stride > 1:
+        mode_description += f', stride {stride}'
     if verbose:
         print(f"\nTotal frames processed: {total_frames}")
         print(f"Mode: {mode}")
@@ -249,7 +252,7 @@ def cmap_per_traj_slice(
     cmap = np.zeros(len(contact_pairs))
     blockslice = blockslices[slice_idx]
     for ts in tqdm(
-        universe.trajectory[blockslice.start:blockslice.stop],
+        universe.trajectory[blockslice.start:blockslice.stop:blockslice.step],
         position=slice_idx,
         desc=f'process {slice_idx:>2.0f}',
         leave=False,

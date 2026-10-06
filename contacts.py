@@ -60,7 +60,14 @@ from trajectory_files import TRAJ_EXTENSIONS, get_trajectory_files
     type=click.Path(),
     help='Path to output file',
 )
-def main(trajfile, trajlist, topfile, ndxfile, output, trajext):
+@click.option(
+    '--stride',
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+    help='Use only every n-th frame of each trajectory.',
+)
+def main(trajfile, trajlist, topfile, ndxfile, output, trajext, stride):
     # Get list of trajectory files
     traj_files = get_trajectory_files(trajfile, trajlist, topfile, trajext)
     
@@ -140,15 +147,15 @@ def main(trajfile, trajlist, topfile, ndxfile, output, trajext):
         for traj_idx, traj_file in enumerate(traj_files):
             print(f"Processing trajectory {traj_idx + 1}/{len(traj_files)}: {traj_file}")
             for distances in compute_distances(
-                traj_file, topfile, atom_pairs,
+                traj_file, topfile, atom_pairs, stride=stride,
             ):
                 np.savetxt(ostream, distances, fmt='%.5f')
 
 
-def compute_distances(trajfile, topfile, atom_pairs, chunk=100):
+def compute_distances(trajfile, topfile, atom_pairs, stride=1, chunk=100):
     # iterload reads any mdtraj-supported format chunk by chunk
     for frames in tqdm(
-        md.iterload(trajfile, top=topfile, chunk=chunk),
+        md.iterload(trajfile, top=topfile, chunk=chunk, stride=stride),
         desc=f"Processing {trajfile}",
     ):
         yield md.compute_distances(
