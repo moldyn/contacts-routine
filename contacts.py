@@ -94,16 +94,22 @@ def main(trajfile, trajlist, topfile, ndxfile, output, trajext):
         )
 
 
-    # convert residue indices to heavy atoms
-    resseq_to_mdtraj = {res.resSeq: res.index for res in top.residues}
-
+    # convert residue indices to heavy atoms. Collect by resSeq over all
+    # residues (like 'resid' in estimate_contacts.py): mdtraj splits a residue
+    # in two if its atoms are not contiguous in the PDB, e.g. when all
+    # hydrogens are listed after all heavy atoms.
     atoms_per_res = {
         index: [
-            atom.index for atom in top.residue(resseq_to_mdtraj[index]).atoms
-            if atom.element.symbol != 'H'
+            atom.index for atom in top.atoms
+            if atom.residue.resSeq == index and atom.element.symbol != 'H'
         ]
         for index in np.unique(index_pairs)
     }
+    no_heavy = [index for index, atoms in atoms_per_res.items() if not atoms]
+    if no_heavy:
+        raise click.UsageError(
+            f"Residues without heavy atoms in {topfile}: {no_heavy}"
+        )
 
     atom_pairs = [
         list(
