@@ -90,17 +90,17 @@ def main(contactfile, indexfile, output, threshold):
             selected_contact_indices_per_res_pair[
                 res_pair
             ] = selected_atom_idxs
-        print(f'res {res_pair[0]:>2.0f}-{res_pair[1]:>2.0f}')
+        #print(f'res {res_pair[0]:>2.0f}-{res_pair[1]:>2.0f}')
         for contact, formed in zip(
             indices[:, 1][atom_idxs][idx_sort],
             formed_fraction[idx_sort],
         ):
             if formed < 1e-2:
                 break
-            print(
-                f'    atom {contact[0]:>3.0f}-{contact[1]:>3.0f}: '
-                f'{formed:.4f}',
-            )
+            #print(
+            #    f'    atom {contact[0]:>3.0f}-{contact[1]:>3.0f}: '
+            #    f'{formed:.4f}',
+            #)
 
     # get selected residue pairs
     selected_res_pairs = [
