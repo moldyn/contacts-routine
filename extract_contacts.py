@@ -2,12 +2,10 @@
 
 import click
 import numpy as np
-import msmhelper as mh
-import prettypyplot as pplt
-from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-pplt.use_style()
+from txt_io import savetxt
+
 CUTOFF = 0.45  # [nm]
 
 
@@ -44,7 +42,7 @@ CUTOFF = 0.45  # [nm]
 )
 def main(contactfile, indexfile, output, threshold):
     # load files
-    indices_raw = np.loadtxt(indexfile, dtype=int)
+    indices_raw = np.loadtxt(indexfile, dtype=int, ndmin=2)
 
     # convert indices in tuples
     indices = np.empty((len(indices_raw), 2), dtype=object)
@@ -69,7 +67,7 @@ def main(contactfile, indexfile, output, threshold):
     n_frames = idx + 1
 
     contact_is_formed = contact_is_formed_count / n_frames
-    mh.savetxt(
+    savetxt(
         f'{contactfile}.is_formed',
         contact_is_formed,
         fmt='%.5f',
@@ -110,12 +108,12 @@ def main(contactfile, indexfile, output, threshold):
         for res_pair in res_pairs
         if res_pair in selected_contact_indices_per_res_pair
     ]
-    mh.savetxt(
+    savetxt(
         f'{output}.ndx',
         selected_res_pairs,
         header=(
             'residue indices, where for each residue the all atom pairs '
-            f'formed more than {threshold:g} were selected',
+            f'formed more than {threshold:g} were selected'
         ),
         fmt='%.0f',
     )

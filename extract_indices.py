@@ -1,6 +1,7 @@
 import click
-import msmhelper as mh
 import numpy as np
+
+from txt_io import savetxt
 
 
 @click.command(
@@ -33,8 +34,8 @@ def main(iscontactfile, threshold, max_threshold):
             f"Minimum threshold ({threshold}) cannot be greater than maximum threshold ({max_threshold})"
         )
     # load files
-    is_contacts = mh.opentxt(iscontactfile, usecols=2)
-    idxs = mh.opentxt(iscontactfile, usecols=(0, 1))  # starting from 1
+    is_contacts = np.loadtxt(iscontactfile, usecols=2, ndmin=1)
+    idxs = np.loadtxt(iscontactfile, usecols=(0, 1), dtype=int, ndmin=2)  # starting from 1
 
     # draw rectangles to highlight native contacts
     selected_idxs = [
@@ -48,7 +49,7 @@ def main(iscontactfile, threshold, max_threshold):
         #output_filename += f'-{max_threshold:g}'
     #output_filename += '.ndx'
     
-    mh.savetxt(
+    savetxt(
         output_filename,
         selected_idxs,
         fmt='%.0f',

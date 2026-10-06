@@ -19,7 +19,7 @@ The entry point for the full pipeline is `run_contacts_routine.sh`.
 
 ## Requirements
 
-- Python with: `MDAnalysis`, `mdtraj`, `msmhelper`, `numpy`, `click`, `tqdm`, `prettypyplot`, `matplotlib`
+- Python with: `MDAnalysis`, `mdtraj`, `numpy`, `click`, `tqdm`
 - Trajectory files in any supported format (see [Trajectory formats](#trajectory-formats))
 - A topology file (`.pdb` or `.tpr`)
 - An index file (`.ndx`) listing residue pairs to analyze (1-indexed, shape `(n, 2)`, where n is the number of residue pairs)
