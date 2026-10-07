@@ -3,7 +3,7 @@
 
 # Print usage instructions
 usage() {
-    echo "Usage: $0 -traj <path> -pdb <file> -min <val> -max <val> -ndx <file> -sys <name> -traj_mode <mode> -mode <mode> [-ext <ext>] [-stride <n>]"
+    echo "Usage: $0 -traj <path> -pdb <file> -min <val> -max <val> -ndx <file> -sys <name> -traj_mode <mode> -mode <mode> [-ext <ext>] [-stride <n>] [-atom_thr on|off]"
     echo "  -traj: trajectory file OR path to folder with trajectory files (alias: -xtc)"
     echo "         supported formats: xtc, trr, dcd, nc, ncdf, mdcrd, xyz, gro, pdb"
     echo "  -pdb: pdb file"
@@ -18,6 +18,11 @@ usage() {
     echo "  -ext: (optional, multi mode) only use files with this extension in the folder,"
     echo "        required if the folder contains trajectories of more than one format"
     echo "  -stride: (optional) use only every n-th frame of each trajectory (default: 1 = all frames)"
+    echo "  -atom_thr: (optional) apply the min threshold also to the atom pairs in step 4 [on|off] (default: on)"
+    echo "           on:  keep residue pairs with at least one atom pair in contact >= min threshold,"
+    echo "                distance = minimum over those atom pairs"
+    echo "           off: keep all residue pairs selected in step 2,"
+    echo "                distance = minimum over all heavy-atom pairs"
     echo ""
     echo "Examples:"
     echo "  Single trajectory:"
@@ -54,6 +59,7 @@ while [[ "$#" -gt 0 ]]; do
         -mode) MODE="$2"; shift ;;
         -ext) TRAJ_EXT="$2"; shift ;;
         -stride) STRIDE="$2"; shift ;;
+        -atom_thr) ATOM_THR="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; usage; exit 1 ;;
     esac
     shift
@@ -102,6 +108,17 @@ else
     echo "Running in single-trajectory mode"
     echo "Trajectory file: $TRAJ"
 fi  
+
+ATOM_THR="${ATOM_THR:-on}"
+if [ "$ATOM_THR" == "on" ]; then
+    ATOM_THR_ARG="--atom-threshold"
+elif [ "$ATOM_THR" == "off" ]; then
+    ATOM_THR_ARG="--no-atom-threshold"
+else
+    echo "Error: -atom_thr must be 'on' or 'off'"
+    usage
+    exit 1
+fi
 
 STRIDE="${STRIDE:-1}"
 if ! [[ "$STRIDE" =~ ^[1-9][0-9]*$ ]]; then
@@ -194,6 +211,7 @@ time python extract_contacts.py \
     --contacts $ATOMDIST \
     --index ${ATOMDIST}.atom_indices \
     --threshold ${MIN_THR} \
+    $ATOM_THR_ARG \
     --output ${SYSTEM}.mindist  
 
 echo ""

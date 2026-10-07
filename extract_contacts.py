@@ -40,7 +40,19 @@ CUTOFF = 0.45  # [nm]
     type=click.FloatRange(min=0, max=1),
     help='Threshold of fraction of formed contacts to be selected.',
 )
-def main(contactfile, indexfile, output, threshold):
+@click.option(
+    '--atom-threshold/--no-atom-threshold',
+    default=True,
+    show_default=True,
+    help=(
+        'Apply the threshold also to the atom pairs: keep only atom pairs '
+        'in contact for at least the threshold fraction of frames (and '
+        'drop residue pairs without any). With --no-atom-threshold, every '
+        'residue pair is kept and its minimal distance over all heavy-atom '
+        'pairs is written.'
+    ),
+)
+def main(contactfile, indexfile, output, threshold, atom_threshold):
     # load files
     indices_raw = np.loadtxt(indexfile, dtype=int, ndmin=2)
 
@@ -83,9 +95,9 @@ def main(contactfile, indexfile, output, threshold):
         formed_fraction = contact_is_formed[atom_idxs]
         idx_sort = np.argsort(formed_fraction)[::-1]
 
-        selected_atom_idxs = np.array(
-            atom_idxs,
-        )[formed_fraction >= threshold]
+        selected_atom_idxs = np.array(atom_idxs)
+        if atom_threshold:
+            selected_atom_idxs = selected_atom_idxs[formed_fraction >= threshold]
         if len(selected_atom_idxs):
             selected_contact_indices_per_res_pair[
                 res_pair
@@ -108,21 +120,22 @@ def main(contactfile, indexfile, output, threshold):
         for res_pair in res_pairs
         if res_pair in selected_contact_indices_per_res_pair
     ]
+    if atom_threshold:
+        selection = (
+            'for each residue the atom pairs formed more than '
+            f'{threshold:g} were selected'
+        )
+    else:
+        selection = 'for each residue all heavy-atom pairs were used'
     savetxt(
         f'{output}.ndx',
         selected_res_pairs,
-        header=(
-            'residue indices, where for each residue the all atom pairs '
-            f'formed more than {threshold:g} were selected'
-        ),
+        header=f'residue indices, where {selection}',
         fmt='%.0f',
     )
 
     with open(output, 'w') as file_output:
-        file_output.write(
-            '# minimal distances where for each residue the atom pairs '
-            f'formed more than {threshold:g} were selected\n',
-        )
+        file_output.write(f'# minimal distances where {selection}\n')
         for distances in load_txt_gen(filename=contactfile):
             distances = [
                 distances[

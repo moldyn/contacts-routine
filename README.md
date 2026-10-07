@@ -30,7 +30,7 @@ The entry point for the full pipeline is `run_contacts_routine.sh`.
 ## Usage
 
 ```bash
-./run_contacts_routine.sh -traj <path> -pdb <file> -min <val> -max <val> -ndx <file> -sys <name> -traj_mode <mode> -mode <mode> [-ext <ext>] [-stride <n>]
+./run_contacts_routine.sh -traj <path> -pdb <file> -min <val> -max <val> -ndx <file> -sys <name> -traj_mode <mode> -mode <mode> [-ext <ext>] [-stride <n>] [-atom_thr on|off]
 ```
 
 | Parameter | Description |
@@ -45,6 +45,7 @@ The entry point for the full pipeline is `run_contacts_routine.sh`.
 | `-mode` | Threshold mode: `overall` or `per-trajectory` |
 | `-ext` | *(optional, `multi` only)* Only use files with this extension from the folder, e.g. `dcd` |
 | `-stride` | *(optional)* Use only every n-th frame of each trajectory, e.g. `10` (default: `1`, all frames) |
+| `-atom_thr` | *(optional)* Apply the minimum threshold also to atom pairs in step 4: `on` (default) or `off` (see [Step 4](#step-4--extract_contactspy)) |
 
 ### Trajectory formats
 
@@ -149,7 +150,10 @@ gmx editconf -f in.pdb -o out.pdb -resnr 1
 
 ### Step 4 — `extract_contacts.py`
 
-For each residue pair, identifies atom pairs that individually form contacts (distance ≤ **0.45 nm**) above the minimum threshold. Writes the per-frame minimal distance for each such residue pair to the final output file.
+Computes, for every atom pair, the fraction of frames with distance ≤ **0.45 nm** (written to `<...>_selected_atom_distances.is_formed`), and writes the per-frame minimal distance of each residue pair to the final output file. How the minimal distance is taken depends on `-atom_thr`:
+
+- **`on`** (default): only atom pairs that are in contact in at least `MIN_THR` of the frames are used. Residue pairs without any such atom pair are dropped, so the final list can be shorter than the step 2 selection.
+- **`off`**: all residue pairs selected in step 2 are kept, and the distance is the minimum over **all** heavy-atom pairs, i.e. the same residue–residue minimum distance used in step 1.
 
 ---
 
