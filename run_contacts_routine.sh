@@ -214,8 +214,12 @@ time python extract_contacts.py \
     $ATOM_THR_ARG \
     --output ${SYSTEM}.mindist  
 
+# number of frames per trajectory (same rows as the final distances)
+cp ${ATOMDIST}.limits ${SYSTEM}.mindist.limits
+
 echo ""
 echo "Final output files:"
 echo "  - ${SYSTEM}.mindist (final minimal distances)"
 echo "  - ${SYSTEM}.mindist.ndx (indices of selected residue pairs)"
+echo "  - ${SYSTEM}.mindist.limits (number of frames per trajectory, to split ${SYSTEM}.mindist)"
 #end

@@ -6,6 +6,7 @@ import mdtraj as md
 from tqdm import tqdm
 
 from trajectory_files import TRAJ_EXTENSIONS, get_trajectory_files
+from txt_io import savetxt
 
 
 @click.command(
@@ -143,13 +144,27 @@ def main(trajfile, trajlist, topfile, ndxfile, output, trajext, stride):
     # flatten atom_pairs to loop over all
     atom_pairs = np.concatenate(atom_pairs)
 
+    # number of frames (rows) written per trajectory, to split the output
+    n_frames_per_traj = []
     with open(output, 'w') as ostream:
         for traj_idx, traj_file in enumerate(traj_files):
             print(f"Processing trajectory {traj_idx + 1}/{len(traj_files)}: {traj_file}")
+            n_frames = 0
             for distances in compute_distances(
                 traj_file, topfile, atom_pairs, stride=stride,
             ):
                 np.savetxt(ostream, distances, fmt='%.5f')
+                n_frames += len(distances)
+            n_frames_per_traj.append(n_frames)
+
+    savetxt(
+        f'{output}.limits',
+        n_frames_per_traj,
+        fmt='%.0f',
+        header='\n'.join(
+            ['number of frames per trajectory, in this order:'] + traj_files,
+        ),
+    )
 
 
 def compute_distances(trajfile, topfile, atom_pairs, stride=1, chunk=100):

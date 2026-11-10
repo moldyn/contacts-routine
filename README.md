@@ -120,8 +120,19 @@ When using `multi` mode, the folder should contain trajectory files named e.g.:
 | `<s>.is_mindist.thr<MIN>-<MAX>.ndx` | Residue pairs within the threshold window (from step 2) |
 | `<s>.all_thr<MIN>-<MAX>_selected_atom_distances` | All-atom pairwise distances for selected pairs (from step 3) |
 | `<s>.all_thr<MIN>-<MAX>_selected_atom_distances.atom_indices` | Atom index mapping `(res_i, res_j, atom_i, atom_j)` (from step 3) |
+| `<s>.all_thr<MIN>-<MAX>_selected_atom_distances.limits` | Number of frames per trajectory (from step 3) |
 | `<s>.mindist` | **Final output**: minimal distances per frame for selected contacts |
 | `<s>.mindist.ndx` | Residue pair indices of the final selected contacts |
+| `<s>.mindist.limits` | Number of frames of each trajectory, in input order (one per line), to split `<s>.mindist` per trajectory |
+
+The rows of `<s>.mindist` are the frames of all trajectories one after another (with `-stride`, only the used frames). `<s>.mindist.limits` gives the number of rows belonging to each trajectory; the trajectory files are listed, in the same order, in its header. To split the distances per trajectory:
+
+```python
+import numpy as np
+dist = np.loadtxt('<s>.mindist')
+limits = np.loadtxt('<s>.mindist.limits', dtype=int, ndmin=1)
+per_traj = np.split(dist, np.cumsum(limits)[:-1])
+```
 
 The pipeline skips step 1 if `<s>.is_mindist` already exists. The final output files (.mindist and .mindist.ndx) are those used to compute the similarity matrix and correlation-based clusters with MoSAIC. The intermediate output files are usually not used in our workflow and can be deleted (unless the user needs them for some different analysis).
 
